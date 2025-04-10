@@ -1,1 +1,12 @@
 this is the day one task from sg
+class Sg{
+public static void main(String[]args){
+Sg s1=new Sg();
+String Employee=s1.newJoiner("bipin");
+System.out.println(Employee);
+
+}
+}
+public String newJoiner(String name){
+return "bipin";
+}
