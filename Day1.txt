@@ -14,4 +14,8 @@ return "bipin";
 }
 public String officeFloor(String floor){
 return "10th floor";
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 35a25f51b12b6db11841592e931e280ed532ce73
