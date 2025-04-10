@@ -10,3 +10,6 @@ System.out.println(Employee);
 public String newJoiner(String name){
 return "bipin";
 }
+public String officeFloor(String floor){
+return "10th floor";
+}
