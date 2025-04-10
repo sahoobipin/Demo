@@ -1,1 +1,21 @@
 this is the day one task from sg
+class Sg{
+public static void main(String[]args){
+Sg s1=new Sg();
+String Employee=s1.newJoiner("bipin");
+String floor=s1.officeFloor("10thfloor");
+System.out.println(Employee);
+System.out.println(floor);
+
+}
+}
+public String newJoiner(String name){
+return "bipin";
+}
+public String officeFloor(String floor){
+return "10th floor";
+<<<<<<< HEAD
+}
+=======
+}
+>>>>>>> 35a25f51b12b6db11841592e931e280ed532ce73
