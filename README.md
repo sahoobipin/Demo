@@ -848,3 +848,206 @@ Decoupled module design
 This document serves as a base for tracking the project architecture and understanding the code structure in GTPS CASHFIT.
 
 
+[5:30 PM, 5/21/2025] Chiku Ganeshpg: package com.sg.trade.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class StpEmissionDTO {
+    private UUID id;
+    private String emissionId;
+    private String cptyMnemonic;
+    private String cptyName;
+    private String codeIsin;
+    private String currency;
+    private BigDecimal amount;
+    private LocalDateTime valueDate;
+    private LocalDateTime maturityDate;
+    private String portfolio;
+    private BigDecimal exchangeRate;
+    private String integrationId;
+    private LocalDateTime integrationDate;
+    private String integrationFile;
+    private String dealType;
+}
+
+
+
+
+repo
+-----
+package com.sg.trade.repository;
+
+import com.sg.trade.entity.StpEmmissionEntity;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.UUID;
+
+@Repository
+public interface StpEmissionRepository extends JpaRepository<StpEmmissionEntity, UUID> {
+}
+
+
+service
+--------
+package com.sg.trade.service;
+
+import com.sg.trade.dto.StpEmissionDTO;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
+
+public interface StpEmissionService {
+    List<StpEmissionDTO> uploadAndProcessCsv(MultipartFile file);
+    List<StpEmissionDTO> getAllEmissions();
+}
+
+
+
+serviceimpl
+-----------
+
+
+package com.sg.trade.service.impl;
+
+import com.sg.trade.dto.StpEmissionDTO;
+import com.sg.trade.entity.StpEmmissionEntity;
+import com.sg.trade.repository.StpEmissionRepository;
+import com.sg.trade.service.StpEmissionService;
+import lombok.RequiredArgsConstructor;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class StpEmissionServiceImpl implements StpEmissionService {
+
+    private final StpEmissionRepository stpEmissionRepository;
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+    @Override
+    public List<StpEmissionDTO> uploadAndProcessCsv(MultipartFile file) {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()));
+             CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.withFirstRecordAsHeader())) {
+
+            List<StpEmmissionEntity> entities = new ArrayList<>();
+
+            for (CSVRecord record : csvParser) {
+                StpEmmissionEntity entity = new StpEmmissionEntity();
+                entity.setEmissionId(record.get("emission_id"));
+                entity.setCptyMnemonic(record.get("cpty_mnemonic"));
+                entity.setCptyName(record.get("cpty_name"));
+                entity.setCodeIsin(record.get("code_isin"));
+                entity.setCurrency(record.get("currency"));
+                entity.setAmount(new BigDecimal(record.get("amount")));
+                entity.setValueDate(LocalDateTime.parse(record.get("value_date"), DATE_FORMATTER));
+                entity.setMaturityDate(LocalDateTime.parse(record.get("maturity_date"), DATE_FORMATTER));
+                entity.setPortfolio(record.get("portfolio"));
+                entity.setExchangeRate(new BigDecimal(record.get("exchange_rate")));
+                entity.setIntegrationId(record.get("integration_id"));
+                entity.setIntegrationFile(record.get("integration_file"));
+                entity.setDealType(record.get("deal_type"));
+
+                entities.add(entity);
+            }
+
+            List<StpEmmissionEntity> savedEntities = stpEmissionRepository.saveAll(entities);
+            return savedEntities.stream()
+                    .map(this::convertToDTO)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            throw new RuntimeException("Error processing CSV file: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public List<StpEmissionDTO> getAllEmissions() {
+        return stpEmissionRepository.findAll().stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    private StpEmissionDTO convertToDTO(StpEmmissionEntity entity) {
+        return new StpEmissionDTO(
+                entity.getId(),
+                entity.getEmissionId(),
+                entity.getCptyMnemonic(),
+                entity.getCptyName(),
+                entity.getCodeIsin(),
+                entity.getCurrency(),
+                entity.getAmount(),
+                entity.getValueDate(),
+                entity.getMaturityDate(),
+                entity.getPortfolio(),
+                entity.getExchangeRate(),
+                entity.getIntegrationId(),
+                entity.getIntegrationDate(),
+                entity.getIntegrationFile(),
+                entity.getDealType()
+        );
+    }
+}
+
+
+controller
+----------
+
+
+package com.sg.trade.controller;
+
+import com.sg.trade.dto.StpEmissionDTO;
+import com.sg.trade.service.StpEmissionService;
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/v1/stp-emissions")
+@RequiredArgsConstructor
+@Api(tags = "STP Emissions API")
+public class StpEmissionController {
+
+    private final StpEmissionService stpEmissionService;
+
+    @PostMapping("/upload")
+    @ApiOperation("Upload CSV file with STP emissions data")
+    public ResponseEntity<List<StpEmissionDTO>> uploadCsv(@RequestParam("file") MultipartFile file) {
+        List<StpEmissionDTO> result = stpEmissionService.uploadAndProcessCsv(file);
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping
+    @ApiOperation("Get all STP emissions")
+    public ResponseEntity<List<StpEmissionDTO>> getAllEmissions() {
+        List<StpEmissionDTO> emissions = stpEmissionService.getAllEmissions();
+        return ResponseEntity.ok(emissions);
+    }
+}
+[5:39 PM, 5/21/2025] Chiku Ganeshpg: 
